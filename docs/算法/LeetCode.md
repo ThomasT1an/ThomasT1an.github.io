@@ -129,7 +129,7 @@ public static String longestPalindrome(String s) {
 
 
 
-## T[198. 打家劫舍](https://leetcode-cn.com/problems/house-robber/)(e)
+## T198.打家劫舍
 
 ```java
 /*
@@ -162,7 +162,7 @@ public static String longestPalindrome(String s) {
 
 
 
-## T[303. 区域和检索 - 数组不可变](https://leetcode-cn.com/problems/range-sum-query-immutable/)  前缀和(e)
+## T303. 区域和检索 - 数组不可变  前缀和(e)
 
 
 
@@ -186,7 +186,7 @@ class NumArray {
 
 
 
-## T[62. 不同路径](https://leetcode-cn.com/problems/unique-paths/)(m)
+## T62. 不同路径(m)
 
 ```java
  /*
@@ -214,7 +214,7 @@ class NumArray {
     }
 ```
 
-## T[63. 不同路径 II](https://leetcode-cn.com/problems/unique-paths-ii/)(m)
+## T63. 不同路径 II(m)
 
 ```java
    /*
@@ -255,7 +255,7 @@ class NumArray {
     }
 ```
 
-## T[64. 最小路径和](https://leetcode-cn.com/problems/minimum-path-sum/)(m)
+## T64. 最小路径和(m)
 
 ```java
 /*
@@ -290,7 +290,7 @@ class NumArray {
     }
 ```
 
-## T[91. 解码方法](https://leetcode-cn.com/problems/decode-ways/)(m)
+## T91. 解码方法(m)
 
 ```java
 /*
@@ -340,7 +340,7 @@ class NumArray {
     }
 ```
 
-## T[120. 三角形最小路径和](https://leetcode-cn.com/problems/triangle/)(m)
+## T120. 三角形最小路径和(m)
 
 ```java
 /*
@@ -389,7 +389,7 @@ class NumArray {
     }
 ```
 
-## T[139. 单词拆分](https://leetcode-cn.com/problems/word-break/)(m)
+## T139. 单词拆分(m)
 
 ```java
   /*
@@ -421,7 +421,7 @@ class NumArray {
     }
 ```
 
-## T[312. 戳气球](https://leetcode-cn.com/problems/burst-balloons/)(h)
+## T312. 戳气球(h)
 
 ```Java
  /**
