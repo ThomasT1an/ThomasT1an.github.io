@@ -412,7 +412,7 @@ private void doSignal(Node first) {
     do {
         if ( (firstWaiter = first.nextWaiter) == null)
             lastWaiter = null;
-//1.将头结点从当前条件队列中移除
+//1.将头结点从当前条件队列中移除 转移到AQS阻塞队列中
         first.nextWaiter = null;
     } while (!transferForSignal(first) &&
              (first = firstWaiter) != null);
@@ -444,4 +444,436 @@ final boolean transferForSignal(Node node) {
 ```
 
 此时 await中的while循环跳出
+
+
+
+### 基于AQS实现自定义同步器
+
+基于AQS实现一个不可重入的独占锁，要借助AQS来实现锁，需要重写下列方法：
+
+```Java
+<p>To use this class as the basis of a synchronizer, redefine the
+* following methods, as applicable, by inspecting and/or modifying
+* the synchronization state using {@link #getState}, {@link
+* #setState} and/or {@link #compareAndSetState}:
+*
+* <ul>
+* <li> {@link #tryAcquire}
+* <li> {@link #tryRelease}
+* <li> {@link #tryAcquireShared}
+* <li> {@link #tryReleaseShared}
+* <li> {@link #isHeldExclusively}
+* </ul>
+```
+
+由于是独占锁，所以不需要实现两个Shared方法
+
+实现自定义同步器的关键在于定义state变量的含义
+
+在上面提到：
+
+AQS中的第一个变量state是关键变量，不同的组件用state来表述不同的含义，比如在ReentrantLock中，state用来表示当前线程获取锁的可重入次数，
+
+对于读写锁ReentrantWriteLock来说，state的高16位用来表示读锁的次数，低16位用来表示写锁的可重入次数
+
+对于Semaphore来说，state用来表示当前可用信号的个数
+
+对于CountDownlatch来说，state用来表示计数器当前的值
+
+那么对于一个不可重入的独占锁，state只需要用来表述该锁是否被占用即可
+
+定义0表示目前锁空闲，1表示已经被持有
+
+具体lock的使用如下：
+
+```Java
+*   // The sync object does all the hard work. We just forward to it.
+*   private final Sync sync = new Sync();
+*
+*   public void lock()                { sync.acquire(1); }
+*   public boolean tryLock()          { return sync.tryAcquire(1); }
+*   public void unlock()              { sync.release(1); }
+*   public Condition newCondition()   { return sync.newCondition(); }
+*   public boolean isLocked()         { return sync.isHeldExclusively(); }
+*   public boolean hasQueuedThreads() { return sync.hasQueuedThreads(); }
+*   public void lockInterruptibly() throws InterruptedException {
+*     sync.acquireInterruptibly(1);
+*   }
+*   public boolean tryLock(long timeout, TimeUnit unit)
+*       throws InterruptedException {
+*     return sync.tryAcquireNanos(1, unit.toNanos(timeout));
+*   }
+```
+
+其中 acquire release方法在独占方式中介绍过，他们已经包含了入队 阻塞 等操作
+
+核心就在于实现tryAcquire tryRelease isHeldExclusively这三个函数
+
+具体实现如下：
+
+```Java
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.AbstractQueuedSynchronizer;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+
+/**
+ * @Author: tzy
+ * @Description:
+ * @Date: Create in 16:49 2020-07-13
+ */
+public class NonReentrantLock implements Lock,java.io.Serializable {
+    private final Sync sync = new Sync();
+    @Override
+    public void lock() {
+        sync.acquire(1);
+    }
+
+    @Override
+    public void lockInterruptibly() throws InterruptedException {
+        sync.acquireInterruptibly(1);
+    }
+
+    @Override
+    public boolean tryLock() {
+        return sync.tryAcquire(1);
+    }
+
+    @Override
+    public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+        return sync.tryAcquireNanos(1,unit.toNanos(time));
+    }
+
+    @Override
+    public void unlock() {
+        sync.release(1);
+    }
+
+    @Override
+    public Condition newCondition() {
+        return sync.newCondition();
+    }
+
+    private static class Sync extends AbstractQueuedSynchronizer{
+        protected boolean tryAcquire(int arg) {
+            /**
+             * 预期是0 可以获得锁 若CAS成功，则设置当前线程为锁持有者 并返回true
+             * 若CAS失败，说明竞争锁失败，则返回false，在acquire方法中，tryAcquire为false将加入阻塞队列中
+             */
+            if(compareAndSetState(0,1)){
+                setExclusiveOwnerThread(Thread.currentThread());
+                return true;
+            }
+            return false;
+        }
+        protected  boolean tryRelease(int arg){
+            if(getState() == 0) {
+                //未加锁时不能释放锁
+                    throw new IllegalMonitorStateException();
+            }
+            setExclusiveOwnerThread(null);
+            setState(0);
+            return true;
+        }
+        protected boolean isHeldExclusively(){
+            return getState() == 1;
+        }
+        Condition newCondition(){
+            return new ConditionObject();
+        }
+    }
+}
+```
+
+### 基于自定义同步器实现的生产者消费者模型
+
+核心：保证统一资源被多个线程并发访问时的完整性，保证资源在任意时刻只能被一个线程访问
+
+思路：
+
+1.当缓冲区满时，生产者阻塞，放弃锁，让其他线程执行
+
+2.当缓冲区空时，消费者阻塞，放弃锁，让其他线程执行
+
+3.当生产者放入一个元素后，放弃锁，唤醒消费者
+
+4.当消费者消费一个元素后，放弃锁，唤醒生产者
+
+```Java
+import java.util.LinkedList;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class Producer_Consumer_Test {
+    public static final int MAX_CAP = 10;
+    static LinkedList<Object> list = new LinkedList<>();
+    static ReentrantLock lock = new ReentrantLock();
+    static Condition consumerWait = lock.newCondition();
+    static Condition producerWait = lock.newCondition();
+
+    class Producer implements Runnable {
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    lock.lock();
+                    while (list.size() == MAX_CAP) {
+                        try {
+                            System.out.println("当前已有" + list.size() + "个产品，缓冲区已满，请等待消费者消费");
+                            producerWait.await();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    list.add(new Object());
+                    System.out.println("生产了一个产品，当前产品个数为 " + list.size());
+                    consumerWait.signal();
+                } finally {
+                    lock.unlock();
+                }
+            }
+        }
+    }
+    class Consumer implements Runnable {
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    lock.lock();
+                    while (list.size() == 0) {
+                        try {
+                            System.out.println("当前已有" + list.size() + "个产品，缓冲区已空，请等待生产者生产");
+                            consumerWait.await();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    list.remove();
+                    System.out.println("消费了一个产品，当前产品个数为 " + list.size());
+                    producerWait.signal();
+                } finally {
+                    lock.unlock();
+                }
+            }
+        }
+    }
+    public static void main(String[] args) throws InterruptedException {
+        Producer_Consumer_Test test = new Producer_Consumer_Test();
+        test.runTest();
+    }
+    public void runTest() {
+        for (int i = 0; i < 3; i++) {
+            new Thread(new Producer()).start();
+            new Thread(new Consumer()).start();
+        }
+    }
+}
+```
+
+两个注意点：
+
+1.使用两个Condition 区分消费者等待队列和生产者等待队列，可以更准确的唤醒。
+
+2.使用while进行判断 避免虚假唤醒
+
+虚假唤醒：
+
+这是一个硬件层面的问题，不太好从应用层面上解释
+
+在Condition的JavaDoc中写到：
+
+```Java
+  * <li>Some other thread invokes the {@link #signal} method for this
+     * {@code Condition} and the current thread happens to be chosen as the
+     * thread to be awakened; or
+     * <li>Some other thread invokes the {@link #signalAll} method for this
+     * {@code Condition}; or
+     * <li>A &quot;<em>spurious wakeup</em>&quot; occurs.
+     * </ul>
+```
+
+signal、signalAll或是spurious wakeup都可能唤醒一个线程
+
+在Object类中也写道：
+
+```Java
+     * A thread can also wake up without being notified, interrupted, or
+     * timing out, a so-called <i>spurious wakeup</i>.  While this will rarely
+     * occur in practice, applications must guard against it by testing for
+     * the condition that should have caused the thread to be awakened, and
+     * continuing to wait if the condition is not satisfied.  In other words,
+     * waits should always occur in loops, like this one:
+     * <pre>
+     *     synchronized (obj) {
+     *         while (&lt;condition does not hold&gt;)
+     *             obj.wait(timeout);
+     *         ... // Perform action appropriate to condition
+     *     }
+     * </pre>
+```
+
+尽管这种现象很少发生，但是还是要采取措施避免他造成的影响，措施就是用while代替if进行判断
+
+硬件层面的解释参考：https://stackoverflow.com/questions/8594591/why-does-pthread-cond-wait-have-spurious-wakeups
+
+
+
+## 9.3 ReentrantLock
+
+![image-20200715120820589](JUC包下的锁.assets/image-20200715120820589.png)
+
+ReentrantLock是可重入的独占锁，内部是使用AQS来实现的
+
+根据构造函数来创造公平/非公平锁
+
+```Java
+public ReentrantLock(boolean fair) {
+    sync = fair ? new FairSync() : new NonfairSync();
+}
+```
+
+默认是非公平的
+
+```Java
+public ReentrantLock() {
+    sync = new NonfairSync();
+}
+```
+
+ReentrantLock的lock()委托给了sync
+
+```Java
+public void lock() {
+    sync.lock();
+}
+```
+
+先看非公平锁是怎么实现的：
+
+```Java
+final void lock() {
+  //CAS设置状态值
+    if (compareAndSetState(0, 1))
+        setExclusiveOwnerThread(Thread.currentThread());
+    else
+        acquire(1);
+}
+```
+
+CAS若期望状态值为0，则设置为1
+
+若CAS成功，则设置该锁持有者为当前线程
+
+若当前CAS失败
+
+则调用acquire（1）
+
+```Java
+public final void acquire(int arg) {
+    if (!tryAcquire(arg) &&
+        acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+        selfInterrupt();
+}
+```
+
+tryAcquire方法需要我们自己实现，若返回false，则将其挂起并加入AQS阻塞队列
+
+```Java
+protected final boolean tryAcquire(int acquires) {
+    return nonfairTryAcquire(acquires);
+}
+```
+
+非公平锁实现的tryAcquire：
+
+```Java
+final boolean nonfairTryAcquire(int acquires) {
+    final Thread current = Thread.currentThread();
+    int c = getState();
+  //1
+    if (c == 0) {
+        if (compareAndSetState(0, acquires)) {
+            setExclusiveOwnerThread(current);
+            return true;
+        }
+    }
+  //2
+    else if (current == getExclusiveOwnerThread()) {
+        int nextc = c + acquires;
+        if (nextc < 0) // overflow
+            throw new Error("Maximum lock count exceeded");
+        setState(nextc);
+        return true;
+    }
+    return false;
+}
+```
+
+1处再次判断状态值是不是0，若是0则同外层操作
+
+2处判断当前线程是不是锁持有者，若是，则状态值+1，表示重入次数+1
+
+若都不是，则返回false，放入AQS阻塞队列
+
+
+
+非公平锁的非公平体现：
+
+场景：线程A在之前获取并一直持有锁，此时线程B尝试获取锁失败，进入nonfairTryAcquire的2处后进入阻塞队列，然后线程A释放锁，线程C尝试获取锁直接成功（可能直接从lock处CAS成功，也可能从nofairTryAcquire的1处成功）从时间上来说线程B是先于线程C尝试获取锁的，但是线程C先获取了锁。
+
+
+
+而公平锁的tryAcquire方法:
+
+```Java
+/**
+ * Fair version of tryAcquire.  Don't grant access unless
+ * recursive call or no waiters or is first.
+ */
+protected final boolean tryAcquire(int acquires) {
+    final Thread current = Thread.currentThread();
+    int c = getState();
+    if (c == 0) {
+      //这里
+        if (!hasQueuedPredecessors() &&
+            compareAndSetState(0, acquires)) {
+            setExclusiveOwnerThread(current);
+            return true;
+        }
+    }
+    else if (current == getExclusiveOwnerThread()) {
+        int nextc = c + acquires;
+        if (nextc < 0)
+            throw new Error("Maximum lock count exceeded");
+        setState(nextc);
+        return true;
+    }
+    return false;
+}
+```
+
+做了一个处理：
+
+```Java
+public final boolean hasQueuedPredecessors() {
+    // The correctness of this depends on head being initialized
+    // before tail and on head.next being accurate if the current
+    // thread is first in queue.
+    Node t = tail; // Read fields in reverse initialization order
+    Node h = head;
+    Node s;
+    return h != t &&
+        ((s = h.next) == null || s.thread != Thread.currentThread());
+}
+```
+
+如果当前线程节点有前驱结点则返回true，此时tryAcquire会直接返回false，因为在公平策略下，若有前驱节点，则应该等待前驱节点先获取锁。
+
+如果当前AQS队列为空（h==t)，或者当前线程节点是AQS的第一个节点则返回false(s.thread==current)，此时当前线程可以去尝试获取锁。
+
+如果出现h!=t时 又出现(s=h.next) == null的情况，则说明有一个元素将要作为AQS的第一个队列节点进入队列，因为enq函数的第一个元素入队是两步操作，首先创建一个哨兵头结点，然后将第一个元素插入到哨兵节点后面，此时返回true
+
+
+
+## 9.4读写锁ReentrantReadWriteLock
 
