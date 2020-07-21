@@ -877,3 +877,265 @@ public final boolean hasQueuedPredecessors() {
 
 ## 9.4读写锁ReentrantReadWriteLock
 
+ReentrantLock是独占锁，同一时刻只有一个线程可以获取到锁，而实际情况中会有写少读多的场景。
+
+ReentrantReadWriteLock采用读写分离的策略解决这一问题
+
+
+
+ReentrantReadWriteLock实现了ReadWriteLock接口
+
+```java
+public interface ReadWriteLock {
+    Lock readLock();
+    Lock writeLock();
+}
+```
+
+内部为一对锁
+
+一个用于只读操作，一个用于写入操作
+
+在没有线程获取写锁的情况，读锁可以被多个线程获取，也就是说读锁是共享锁，写锁是独占锁。
+
+
+
+### 1.读写锁是用AQS实现的，如何用一个int state表示读写两种状态？
+
+
+
+采用按位分隔的方式，将一个变量分为两部分，高16位表示读状态，低16位表示写状态
+
+```Java
+        static final int SHARED_SHIFT   = 16;
+        static final int SHARED_UNIT    = (1 << SHARED_SHIFT);
+        static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;
+        static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
+
+        /** Returns the number of shared holds represented in count  */
+        static int sharedCount(int c)    { return c >>> SHARED_SHIFT; }
+        /** Returns the number of exclusive holds represented in count  */
+        static int exclusiveCount(int c) { return c & EXCLUSIVE_MASK; }
+```
+
+假设当前状态为S，那么写状态为 S&0x0000FFFF，读状态为S>>>16
+
+要改变状态时，读+1则为S+1<<16
+
+```Java
+//获取读锁的尝试
+final boolean tryReadLock() {
+				........
+        if (compareAndSetState(c, c + SHARED_UNIT)) {
+ 				........
+```
+
+写+1则直接S+1
+
+```Java
+final boolean tryWriteLock() {tryWriteLock
+    ......
+    if (!compareAndSetState(c, c + 1))
+    ......
+```
+
+### 
+
+### 2.读锁的实现
+
+和ReentrantLock相似，同步队列使用的是实现了AQS的Sync类，读锁获取锁会调用其tryAcquireShared方法：
+
+```Java
+protected final int tryAcquireShared(int unused) {
+            Thread current = Thread.currentThread();
+            int c = getState();
+            /*
+            exclusiveCount用来获取写锁状态，若不是0，说明写锁被持有
+            这时用getExclusiveOwnerThread看写锁是否是当前线程持有，若不是，则直接返回获取读锁失败。
+             */
+            if (exclusiveCount(c) != 0 &&
+                getExclusiveOwnerThread() != current)
+                return -1;
+
+            //获取持有读锁的线程数
+            int r = sharedCount(c);
+            //1.readerShouldBlock判断是否需要阻塞，在下面的公平/非公平问题中会解释
+            //2.当前r<MAX_COUNT即试图获取锁的线程不能大于最大值65535
+            //3.CAS设置读状态成功
+            //若以上三者均满足，则表示成功获取读锁
+            if (!readerShouldBlock() &&
+                r < MAX_COUNT &&
+                compareAndSetState(c, c + SHARED_UNIT)) {
+                //如果当前r为0，即说明当前线程是第一个获取读锁的线程
+                if (r == 0) {
+                    //将他设为firstReader，并使得firstReaderHoldCount为1
+                    firstReader = current;
+                    firstReaderHoldCount = 1;
+                } else if (firstReader == current) {
+                    //重入次数
+                    firstReaderHoldCount++;
+                } else {
+                    //如果r!=0 且当前线程不是firstReader，那么为其创建一个HoldCounter
+                    //cachedHoldCounter用来记录最后一个获取读锁的线程
+                    HoldCounter rh = cachedHoldCounter;
+                    //如果rh为空或当前线程不是最后获取读锁的线程
+                    //从线程的THreadLocal中拿Holder并将其赋值给cachedHoldCounter
+                    if (rh == null || rh.tid != getThreadId(current))
+                        cachedHoldCounter = rh = readHolds.get();
+                    else if (rh.count == 0)
+                        readHolds.set(rh);
+                    rh.count++;
+                }
+                return 1;
+            }
+            return fullTryAcquireShared(current);
+        }
+```
+
+### 3.写锁的实现
+
+```Java
+final boolean tryWriteLock() {tryWriteLock
+            Thread current = Thread.currentThread();
+            int c = getState();
+            //查看同步状态
+            if (c != 0) {
+                int w = exclusiveCount(c);
+                //若有锁在被使用，看是否是写锁在被使用，若w==0则当前使用的是读锁，那么无法获取写锁，直接返回失败
+                //如果是写锁在被使用，看是否是当前线程，即重入，若不是直接返回fasle
+                if (w == 0 || current != getExclusiveOwnerThread())
+                    return false;
+                //若是，则判断重入次数
+                if (w == MAX_COUNT)
+                    throw new Error("Maximum lock count exceeded");
+            }
+            //获取锁
+            if (!compareAndSetState(c, c + 1))
+                return false;
+            setExclusiveOwnerThread(current);
+            return true;
+        }
+```
+
+### 4.firstReader、firstReaderHoldCount、cachedHoldCounter作用
+
+在读锁的获取中，有一系列关于这些变量的操作，对于共享的可重入锁，每个获取到锁的线程，都需要记录其自身的重入次数，这个次数记录在HoldCounter中，这是一个
+
+```Java
+static final class HoldCounter {
+    int count = 0;
+    // Use id, not reference, to avoid garbage retention
+    final long tid = getThreadId(Thread.currentThread());
+}
+```
+
+他保存重入次数和线程id，存储在ThreadLocal中，所以是线程独立的
+
+```Java
+static final class ThreadLocalHoldCounter
+    extends ThreadLocal<HoldCounter> {
+    public HoldCounter initialValue() {
+        return new HoldCounter();
+    }
+}
+```
+
+```Java
+/**
+ * 最后一个获取读锁的线程的重入次数，每当新的线程变成最后一个获取读锁的线程，这个变量都会更新
+ * 目的是当最后一个获取读锁的线程反复获取/释放读锁，都可以直接使用这个变量，避免去ThreadLocal中拿
+ * 相当于缓存的作用
+ */
+private transient HoldCounter cachedHoldCounter;
+
+/**
+ * firstReader是读取锁的第一个线程，firstReaderHoldCount是他的计数器
+ * <p>This allows tracking of read holds for uncontended read
+ * locks to be very cheap.
+ * 在没有发生竞争的情况下，使用这样一个变量可以避免垃圾产生并且速度更快
+ */
+private transient Thread firstReader = null;
+private transient int firstReaderHoldCount;
+```
+
+### 5.公平与非公平的实现
+
+```Java
+   static final class NonfairSync extends Sync {
+        private static final long serialVersionUID = -8159625535654395037L;
+        //非公平锁，拥有写入锁的线程是否应该阻塞，这里返回false，不阻塞，不去阻塞队列中拿等待的节点，所以是非公平的
+        final boolean writerShouldBlock() {
+            return false;
+        }
+        //拥有读锁的线程是否应该阻塞，看下个线程需要获取什么锁，如果下个线程也获取读锁，就不需要阻塞
+        final boolean readerShouldBlock() {
+            return apparentlyFirstQueuedIsExclusive();
+        }
+    }
+    
+    static final class FairSync extends Sync {
+        private static final long serialVersionUID = -2274990926593161451L;
+        //公平锁的读写锁 都去阻塞队列里面看前面是否还有等待的线程 如果有 本线程就阻塞
+        final boolean writerShouldBlock() {
+            return hasQueuedPredecessors();
+        }
+        final boolean readerShouldBlock() {
+            return hasQueuedPredecessors();
+        }
+    }
+```
+
+### 5.锁降级
+
+```Java
+ * <li><b>Lock downgrading</b>
+ * <p>Reentrancy also allows downgrading from the write lock to a read lock,
+ * by acquiring the write lock, then the read lock and then releasing the
+ * write lock. However, upgrading from a read lock to the write lock is
+ * <b>not</b> possible.
+ *
+```
+
+注释中写到：允许先获取写锁，再获取读锁（同一个线程），再释放写锁，这样从写锁降级到读锁
+
+比如在：
+
+```Java
+ protected final int tryAcquireShared(int unused) {
+            Thread current = Thread.currentThread();
+            int c = getState();
+            /*
+            exclusiveCount用来获取写锁状态，若不是0，说明写锁被持有
+            这时用getExclusiveOwnerThread看写锁是否是当前线程持有，若不是，则直接返回获取读锁失败。
+             */
+            if (exclusiveCount(c) != 0 &&
+                getExclusiveOwnerThread() != current)
+                return -1;
+                .....
+               
+```
+
+允许获得写锁的线程再次获取读锁
+
+《Java 并发编程的艺术》中关于锁降级的说明：
+
+锁降级中读锁的获取是否必要呢？
+
+答案是必要的。主要是为了保证数据的可见性，如果当前线程不获取读锁而是直接释放写锁， 假设此刻另一个线程（记作线程T）获取了写锁并修改了数据，那么当前线程无法感知线程T的数据更新。如果当前线程获取读锁，即遵循锁降级的步骤，则线程T将会被阻塞，直到当前线程使用数据并释放读锁之后，线程T才能获取写锁进行数据更新。
+
+
+
+但是若当前线程释放了写锁（没有获取读锁的情况下），那么T线程获取写锁，此时就独占了锁，当前线程无法对数据进行读取，又怎么能够感知T线程的数据更新呢？
+
+所以这里我觉得是根据需求，如果当前线程需要在修改数据后，再对数据进行读取
+
+这个过程中可以直接不释放写锁，但是这样会让其他想读的线程阻塞，影响效率。
+
+那么还可以进行先释放写锁，再获取读锁的过程，那么这个过程，会有可能其他线程争抢到了写锁，本线程就被阻塞住，或者本线程要访问的数据被其他线程修改或者删除了。
+
+就算没有出现这一情况，释放再获取，总会面临竞争，产生不必要的开销
+
+所以说降级只是一个”建议性“的手段，让本线程在不被中断的情况下，降级到写锁，并且比其他方式更加优秀
+
+这也是降级并不是作为一个强制性的控制写在流程中，而是作为一个”建议“写在注释中的原因
+
