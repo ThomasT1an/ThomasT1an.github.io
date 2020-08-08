@@ -11,6 +11,8 @@
   ### [Jenkins学习记录](./docs/Jenkins/Jenkins学习记录.md)
   
 
+  ## 消息队列
+  ### [Kafka学习记录](./docs/消息队列/kafka/kafka笔记.md)
 # 算法
  ## [LeetCode记录](./docs/算法/LeetCode.md) 
 # CSDN

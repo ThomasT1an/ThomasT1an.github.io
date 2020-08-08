@@ -2,10 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="34ddd180-3f2e-4bc0-a4cc-12785a2aa3a1" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/并发/ThreadLocal:Unsafe:伪共享:ThreadLocalRandom.assets/image-20200703101146827.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/并发/ThreadLocal、Unsafe、伪共享、ThreadLocalRandom.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/并发/ThreadLocal、Unsafe、伪共享、ThreadLocalRandom.md" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -15,15 +12,6 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/index.html">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="285">
-              <caret line="19" column="22" selection-start-line="19" selection-start-column="22" selection-end-line="19" selection-end-column="22" />
-            </state>
-          </provider>
-        </entry>
-      </file>
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/.idea/docsify-blog.iml">
           <provider selected="true" editor-type-id="text-editor" />
@@ -52,8 +40,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/.idea/workspace.xml">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="4650">
-              <caret line="310" column="12" selection-start-line="310" selection-start-column="12" selection-end-line="310" selection-end-column="12" />
+            <state relative-caret-position="4830">
+              <caret line="322" column="12" selection-start-line="322" selection-start-column="12" selection-end-line="322" selection-end-column="12" />
             </state>
           </provider>
         </entry>
@@ -72,9 +60,19 @@
         <entry file="file://$PROJECT_DIR$/README.md">
           <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
             <state split_layout="SPLIT">
-              <first_editor relative-caret-position="210">
-                <caret line="14" column="40" lean-forward="true" selection-start-line="14" selection-start-column="40" selection-end-line="14" selection-end-column="40" />
+              <first_editor relative-caret-position="180">
+                <caret line="12" lean-forward="true" selection-start-line="12" selection-end-line="12" />
               </first_editor>
+              <second_editor />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/docs/消息队列/kafka/kafka笔记.md">
+          <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+            <state split_layout="SPLIT">
+              <first_editor />
               <second_editor />
             </state>
           </provider>
@@ -158,6 +156,19 @@
               <item name="docsify-blog" type="b2602c69:ProjectViewProjectNode" />
               <item name="docsify-blog" type="462c0819:PsiDirectoryNode" />
               <item name="docs" type="462c0819:PsiDirectoryNode" />
+              <item name="消息队列" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="docsify-blog" type="b2602c69:ProjectViewProjectNode" />
+              <item name="docsify-blog" type="462c0819:PsiDirectoryNode" />
+              <item name="docs" type="462c0819:PsiDirectoryNode" />
+              <item name="消息队列" type="462c0819:PsiDirectoryNode" />
+              <item name="kafka" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="docsify-blog" type="b2602c69:ProjectViewProjectNode" />
+              <item name="docsify-blog" type="462c0819:PsiDirectoryNode" />
+              <item name="docs" type="462c0819:PsiDirectoryNode" />
               <item name="算法" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
@@ -217,12 +228,12 @@
       <workItem from="1595297673483" duration="15000" />
       <workItem from="1595333110294" duration="609000" />
       <workItem from="1596362062712" duration="612000" />
-      <workItem from="1596874138283" duration="61000" />
+      <workItem from="1596874138283" duration="154000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="11070000" />
+    <option name="totallyTimeSpent" value="11163000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -302,8 +313,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/.idea/workspace.xml">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4650">
-          <caret line="310" column="12" selection-start-line="310" selection-start-column="12" selection-end-line="310" selection-end-column="12" />
+        <state relative-caret-position="4830">
+          <caret line="322" column="12" selection-start-line="322" selection-start-column="12" selection-end-line="322" selection-end-column="12" />
         </state>
       </provider>
     </entry>
@@ -325,11 +336,19 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/docs/消息队列/kafka/kafka笔记.md">
+      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+        <state split_layout="SPLIT">
+          <first_editor />
+          <second_editor />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/README.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="SPLIT">
-          <first_editor relative-caret-position="210">
-            <caret line="14" column="40" lean-forward="true" selection-start-line="14" selection-start-column="40" selection-end-line="14" selection-end-column="40" />
+          <first_editor relative-caret-position="180">
+            <caret line="12" lean-forward="true" selection-start-line="12" selection-end-line="12" />
           </first_editor>
           <second_editor />
         </state>
