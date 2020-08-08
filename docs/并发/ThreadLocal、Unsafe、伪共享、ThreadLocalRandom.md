@@ -453,7 +453,7 @@ public final int getAndAddInt(Object var1, long var2, int var4) {
 
 为了解决CPU与主内存之间的运行速度差问题，会在CPU与主内存之间添加一级或多级高速缓冲存储器（Cache）。这个Cache一般是被集成到CPU内部的，所以也叫CPU Cache
 
-![image-20200703101146827](ThreadLocal:Unsafe:伪共享:ThreadLocalRandom.assets/image-20200703101146827.png)
+![image-20200703101146827](ThreadLocal、Unsafe、伪共享、ThreadLocalRandom.assets/image-20200703101146827.png)
 
 不同CPU拥有自己的cache，而cache内部是按行存储的，cache行是cache与主内存进行数据交换的单位
 

@@ -6,6 +6,10 @@
   ### [LockSupport、AQS、ReentrantLock、ReentrantReadWriteLock](./docs/并发/JUC包下的锁.md)
   ### [线程池](./docs/并发/线程池.md)
   
+  
+  ## Jenkins
+  ### [Jenkins学习记录](./docs/Jenkins/Jenkins学习记录.md)
+  
 
 # 算法
  ## [LeetCode记录](./docs/算法/LeetCode.md) 
