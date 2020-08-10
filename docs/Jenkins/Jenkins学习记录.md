@@ -1017,6 +1017,24 @@ Jenkins支持按照一定的条件来自动执行
 
 
 
+
+
+# 一段比较完整流程的pipeline实例
+
+
+
+![image-20200810165908624](Jenkins学习记录.assets/image-20200810165908624.png)
+
+
+
+![image-20200810165926753](Jenkins学习记录.assets/image-20200810165926753.png)
+
+![image-20200810165950651](Jenkins学习记录.assets/image-20200810165950651.png)
+
+![image-20200810170003489](Jenkins学习记录.assets/image-20200810170003489.png)
+
+
+
 # 参考资料
 
 《Jenkins 2.x实践指南》 翟志军
