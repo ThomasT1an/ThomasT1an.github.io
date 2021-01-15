@@ -32,3 +32,92 @@ server和worker之间可多对多
 
 且 如果某个worker的server挂了 worker集群会迁移到另一个server上
 
+
+
+
+
+# 多语言处理
+
+```
+ProcessorTracker
+```
+
+```
+initProcessor
+```
+
+```
+ScriptProcessor
+在worker本机生成脚本 然后使用指令执行
+```
+
+```
+提供"http", "https", "ftp"三种开头的脚本下载链接
+```
+
+ 
+
+# server启动流程
+
+![img](powerjob.assets/1595900957124-ad051dbd-d09a-4645-b3a5-3c97328781a1.png)
+
+
+
+
+
+
+
+
+
+# 接口
+
+1.根据appName和password，查appId
+
+http://127.0.0.1:7700/openApi/assert
+
+post 传参form-data
+
+![image-20210115145621887](powerjob.assets/image-20210115145621887.png)
+
+
+
+2.saveJob
+
+更新与新建同一个接口 不传id则为新建
+
+Post Json
+
+
+
+3.fetchJob
+
+![image-20210115150422748](powerjob.assets/image-20210115150422748.png)
+
+
+
+
+
+
+
+## 需补充
+
+----JOB
+
+1.多条件查询job List
+
+---INSTANCE
+
+2.根据jobId、appId、实例状态 查实例List
+
+3.根据instanceId查log 及下载log 需要mongo
+
+---WORKFLOW
+
+4.多条件查询workflow List
+
+--WORKFLOW INSTANCE
+
+数据库内容长度 实际上是限制了节点通信长度
+
+
+
