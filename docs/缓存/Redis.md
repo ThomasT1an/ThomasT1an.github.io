@@ -262,3 +262,51 @@ wait指令可以让异步复制变为同步复制，保证系统的**强一致�
 
 
 
+# 哨兵 Sentinel
+
+Sentinel（哨岗、哨兵）是Redis的高可用性（high availability）解决方案：由一个或多个Sentinel实例（instance）组成的Sentinel系统（system）可以监视任意多个主服务器，以及这些主服务器属下的所有从服务器，并在被监视的主服务器进入下线状态时，自动将下线主服务器属下的某个从服务器升级为新的主服务器，然后由新的主服务器代替已下线的主服务器继续处理命令请求，当旧的主服务器恢复后，会成为新的从服务器。
+
+**Sentinel本质上只是一个运行在特殊模式下的Redis服务器**
+
+它将普通Redis服务器的部分代码替换为Sentinel专用代码，所以关闭了某些指令，开启了新的功能。
+
+
+
+Sentinel作用流程如下：
+
+1.启动Sentinel服务，创建连向**主**服务器的网络连接，会建立两个连接，一个用于发送命令，另一个是订阅连接，订阅了主服务器的sentinel:hello频道
+
+2.Sentinel默认以每10s一次的频率，向被监视的Master发送INFO命令，Master回复它自身的信息和它属下的Slave的信息（包括IP和端口），以便Sentinel发现
+
+3.Sentinel发现Master有Slave后，同样会建立两个连接至Slave
+
+4.Sentinel默认以10s一次的频率向Slave发送INFO命令，得到Slave的回复，其中包括slave的信息、它的master的信息，和slave的**优先级、复制偏移量**，这些信息会用于选出新的master
+
+5.Sentinel以2s一次的频率向所有他监控的master和slave的sentinel:hello频道发送订阅消息
+
+6.由于Sentinel都会订阅了这个频道，所以这个消息也会被其他Sentinel收到，借此Sentinel之间可以互相发现
+
+7.Sentinel互相发现后，会互相建立连接 如图所示：
+
+![image-20210125183808270](Redis.assets/image-20210125183808270.png)
+
+并进行信息交换
+
+8.Sentinel以每秒一次的频率向所有与他建立连接的实例（master、slave、其他Sentinel）发送PING命令，并通过返回的PING命令判断实例是否在线，若未在设置时间内收到回复，则认为该实例 **主观下线**，由于每个Sentinel都可以配置不同的回复时间，或是Sentinel自身的网络问题导致没有收到回复，所以主观下线并不一定代表真实下线
+
+9.当Sentinel认为一个master主观下线，为了确认这个master是否真实下线，他会向同样监视这一master的其他Sentinel进行询问，看它们是否也认为该master进入下线状态，当认为某个master下线的Sentinel数量达到配置的数量后，master会被标记为**客观下线**
+
+10.当一个master被判断为客观下线后，监视这个master的各个Sentinel会选举出一个领头Sentinel，规则为：提议自己、先到先得、超过半数、反复进行至成功 也就是Raft算法 详见 《Redis设计与实现》16.8 https://read.douban.com/reader/ebook/7519526/
+
+11.选举出领头Sentinel后，该Sentinel会负责对这个客观下线的master进行**故障转移**，挑选出一个slave，将其设置为master，将原来的slave对原master的复制改为对新master的复制 （选出新的master的过程主要包括slave健康状态的筛选、优先级排序、复制偏移量排序）
+
+
+
+**要点：**
+
+1.由于选举出领头Sentinel需要**半数以上**，所以Sentinel至少需要3个实例
+
+2.Sentinel机制无法保证消息不丢失
+
+
+

@@ -105,6 +105,40 @@ Post Json
 
 1.多条件查询job List
 
+已有条件：
+
+ID：等于 大于 小于
+
+任务名称： 等于 模糊
+
+任务描述：模糊
+
+时间表达式类型：K/V都有 IN LIST
+
+ 执行类型，单机/广播/MR：V IN LIST
+
+ 执行器类型，Java/Shell ：V IN LIST
+
+执行器信息：等于 模糊
+
+任务状态：V IN LIST
+
+下次执行时间：大于 小于
+
+ 报警用户ID列表：模糊
+
+任务创建时间：大于 小于
+
+任务修改时间：大于 小于
+
+
+
+
+
+
+
+
+
 ---INSTANCE
 
 2.根据jobId、appId、实例状态 查实例List
@@ -118,6 +152,214 @@ Post Json
 --WORKFLOW INSTANCE
 
 数据库内容长度 实际上是限制了节点通信长度
+
+
+
+
+
+
+
+
+
+# Notes
+
+1.com.google.common.base.Stopwatch计时器 用于耗时计算
+
+2.解析配置文件:PropertyUtils
+
+3.获取本机IP 随机端口号等NetUtils
+
+4.通过SpringIOC取指定Bean SpringUtils.getBean(XXX.class); 该class需被容器管理
+
+5.实现InitializingBean 会在Spring容器初始化时执行afterPropertiesSet方法
+
+6.com.google.common.cache.Cache 
+
+```
+/**
+ * cache.get方法，第一个参数是key，第二个参数是一个回调函数
+ * 当通过第一个参数获取value时，如果存在则直接返回旧值 return
+ * 如果不存在，则通过传入的第二个参数（方法）来加载value，把这个value加入缓存并return
+ */
+```
+
+7.JPA自定义表前缀和实体类去掉DO 作为表名 PowerJobPhysicalNamingStrategy
+
+8.Actor没有使用Spring容器进行管理，所以在其中需要用SpringUtils.getBean来获取被Spring管理的类，（如果需要Actor也被Spring容器管理，应该需要设置为多例，Actor是否需要用Spring管理？它的生命周期比较特殊）
+
+9.JPA 大于小于等于 模糊  IN PowerQuery QueryConvertUtils
+
+10.@Autowired构造方法注入IdGenerateService
+
+11. @Async("BeanName") 使用线程池异步处理 ThreadPoolConfig 见https://blog.csdn.net/qq_38796327/article/details/90599867
+12.  @Scheduled 方法的定时执行 OmsScheduleService.timingSchedule
+13. 11/12可以配合使用
+14. @RequestBody需要实体类有Getter方法 且为默认getter的方法名 @Accessors(chain = true, fluent = false)会影响Getter/Setter方法名
+15. mysql索引长度限制 唯一索引String长度为191
+16. Lists.partition 将list集合按指定长度进行切分，返回新的List<List<??>>集合
+17. Spring自带定时任务@Scheduled(fixedRate = SCHEDULE_RATE) 需开启 @EnableScheduling(可标注在Class Spring启动类)
+18. 自带定时任务和@Async可以配合使用
+19. 
+
+
+
+
+
+
+
+
+
+# Server-ServerActor
+
+处理来自worker的请求
+
+## 处理Worker的心跳请求
+
+作用：接收Worker发来的心跳请求，包含机器健康状态、容器部署状态等
+
+存储与内存中，一个appId对应一个Worker集群
+
+
+
+ WorkerManagerService.updateStatus(heartbeat);
+
+![image-20210118111334727](powerjob.assets/image-20210118111334727.png)
+
+
+
+## 处理instance（任务实例）状态
+
+Spring容器管理的InstanceManager 全局唯一实例
+
+ getInstanceManager().updateStatus(req);
+
+
+
+任务实例与任务详情的对应关系存储在InstanceMetadataService的Cache<Long, JobInfoDO> instanceId2JobInfoCache中
+
+任务从Server派发至Worker时装载缓存
+
+任务实例完成时卸载缓存
+
+
+
+对实例信息进行DB的更新
+
+对实例状态进行判断（固定速率和固定延时任务只需要落库，不需要后续判断）
+
+若失败，则执行重试策略 重新进行派发 dispatchService.redispatch
+
+若完成(成功或失败但重试次数到达上限)，则对完成的任务实例进行收尾：上报日志数据、workflow特殊处理、告警、主动移除缓存
+
+
+
+## 处理在线日志请求
+
+ InstanceLogService.submitLogs
+
+ 提交日志记录，持久化到本地数据库中
+
+
+
+## 处理 Worker容器部署请求
+
+todo
+
+
+
+## 处理worker 请求获取当前任务所有处理器节点的请求
+
+ WorkerManagerService.getSortedAvailableWorker
+
+ 获取有序的当前所有可用的Worker地址（按得分高低排序，排在前面的健康度更高）
+
+数据来源是ServerActor接收到的Worker的心跳请求 会存储Worker集群的信息
+
+
+
+# Server-FriendActor
+
+ 处理server与server之间的请求
+
+##  处理存活检测的请求
+
+返回一个请求与响应的时间差
+
+
+
+##  处理查询Worker节点的请求
+
+ 获取当前连接到该Server的Worker信息
+
+数据来源同样是Server-ServerActor中的处理Worker的心跳请求的缓存
+
+
+
+##  onReceiveRemoteProcessReq
+
+todo
+
+
+
+# Server-ServerTroubleshootingActor
+
+处理server异常信息
+
+## onReceiveDeadLetter
+
+就打了个日志
+
+
+
+
+
+# 分布式唯一ID
+
+ IdGenerateService
+
+先装配DefaultServerIdProvider 执行其构造方法 入库
+
+再装配IdGenerateService 执行其构造方法 
+
+
+
+# 线程池
+
+ ThreadPoolConfig
+
+ 创建了三个线程池 分别用于不同的任务
+
+##  omsTimingPool：用于执行定时任务的线程池
+
+ 
+
+
+
+##  omsBackgroundPool：用于执行后台任务的线程池
+
+
+
+
+
+##   taskScheduler：用于定时调度的线程池
+
+
+
+
+
+# 任务调度
+
+ OmsScheduleService.timingSchedule
+
+每15s会执行一次，查询本机需要负责的任务，执行调度
+
+通过Lists.partition 控制每次并发执行10个任务
+
+## CRON Job
+
+时间轮
+
+
 
 
 
