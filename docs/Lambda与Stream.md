@@ -594,6 +594,10 @@ select * from dishlist where calories < 400
 
 find通常在filter后使用
 
+若是串行流 通常findAny也会返回第一个元素
+
+并行流则不一定
+
 
 
 ## 4.5 归约
@@ -601,7 +605,3 @@ find通常在filter后使用
 .reduce()
 
 将流中的元素反复结合起来，得到一个值，这样的操作叫做归约操作
-<<<<<<< HEAD
-=======
-
->>>>>>> b99d6426601cd49f199f8a9bae8a15b4b96e9699
