@@ -1,0 +1,92 @@
+# 1.综述
+
+目的：功能增加
+
+参与方：客户（使用方）、代理目标、代理
+
+特性：使用方式不变，得到功能增强
+
+场景：预处理信息、过滤消息、将信息转发、事后处理消息等
+
+ 
+
+![image-20210315223314595](动态代理.assets/image-20210315223314595.png)
+
+# 2.静态代理
+
+![image-20210315230211341](动态代理.assets/image-20210315230211341.png)
+
+
+
+实现方式：
+
+1.代理类和实际执行的业务类，实现同一个接口
+
+2.**代理类中持有业务类示例，通过调用业务类示例来完成原方法的调用**
+
+3.在代理类执行原方法前后，进行增强
+
+4.对于客户端Client来说，代理类和业务类的使用方法是一致的
+
+
+
+# 3.动态代理
+
+对于静态代理而言，一个委托类（业务类）必须对应一个代理类
+
+而如果有多个委托类，需要获得同一种增强效果(如打印日志)，那么此时若使用静态代理，需要对每一个委托类都编写一个几乎相同的代理类
+
+动态代理可以减少代理类的数量，动态的生成代理类
+
+
+
+![image-20210315232408346](动态代理.assets/image-20210315232408346.png)
+
+原理：jvm实际上的执行文件是以下步骤
+
+.java文件—>.class文件—>通过classLoader加载—>将class加载到JVM中—>实例化class
+
+**如果能够在委托类的.class文件中直接编辑class字节码，将增强功能写入委托类的class中，并以此生成增强后的class，那么就能够实现在运行中的代理**，**而不用事先写好代理类，让代理类编译生成增强后的class**
+
+# 4.JDK动态代理
+
+上面图中的通过Proxy.newProxyInstance方法生成动态代理类的方法就是JDK动态代理方法
+
+newProxyInstance方法有三个参数
+
+1.ClassLoader 用于加载字节码的加载器
+
+2.Class<?>[] interfaces 要实现增强的接口类
+
+3.InvocationHandler 适配器 用于实现增强逻辑和实际调用
+
+
+
+通过生成代理类文件的方式来查看代理类代码：
+
+```
+ @Test
+    public void createProxyClass() throws Exception{
+        byte[] bytes = ProxyGenerator.generateProxyClass("HelloService$Proxy",new Class[]{HelloService.class});
+        Files.write(new File("/Users/tianzhongyi/Desktop/私人/docsify-blog/code/target/classes/tzy/code/design/proxy/HelloService$proxy.class").toPath(),bytes);
+    }
+```
+
+![image-20210315235925541](动态代理.assets/image-20210315235925541.png)
+
+首先生成的时候，构造器传入适配器，在代理类的父类Proxy中持有
+
+![168ADF54-D969-4B8A-B737-C1750E032930](动态代理.assets/168ADF54-D969-4B8A-B737-C1750E032930.png)
+
+然后在代理类中会生成方法hello，作为HelloService接口的实现：
+
+![image-20210316000207501](动态代理.assets/image-20210316000207501.png)
+
+可以看到他实际上就是调用了适配器的invoke方法，而这个适配器的invoke方法是我们自己实现的
+
+![67C81BC9-DEAF-45C8-B30D-0B05E94EC4F7](动态代理.assets/67C81BC9-DEAF-45C8-B30D-0B05E94EC4F7.png)
+
+这个h就是适配器，result前面的$Proxy是动态代理生成类的标志
+
+
+
