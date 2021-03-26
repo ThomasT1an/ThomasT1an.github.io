@@ -79,6 +79,38 @@ https://github.com/JosephZhu1983/java-common-mistakes
 
 # 4.连接池：别让连接池帮了倒忙
 
+1.鉴别客户端SDK是否基于连接池，如果SDK没有使用连接池，而是直接使用TCP连接，首先会有较大的开销，其次因为TCP基于字节流，在多线程环境下若对同一连接进行复用，可能会产生线程安全问题
+
+- 连接池和连接分离的API：通过一个XXXPool获得XXXConnection
+- 内部带有连接池的API：对外提供一个XXXClient类，这个类内部维护了线程池，使用时无需考虑连接的获取和归还
+- 非连接池的API：一般命名为XXXConnection，每次使用需要创建和断开连接，且通常是线程不安全的，使用时可以考虑自己封装一个线程池
+
+
+
+2.多线程使用Jedis时，如果复用Jedis对象，其实是复用底层的RedisOutPutStream来写入命令，无法保证整条命令以一个原子操作写入Socket，也无法确保写入、读取前没有其他数据写到远端，应该通过Jedis提供的线程安全的类JedisPool来获取Jedis实例，JedisPool可以声明为static在多个线程之间共享，扮演连接池的角色，使用时通过try-with-resources从JedisPool获取和归还Jedis实例。
+
+
+
+3.程序退出时，可以通过shutdownhook在程序退出之前关闭连接池资源
+
+![image-20210326101550520](极客时间-Java业务开发常见错误100.assets/image-20210326101550520.png)
+
+
+
+4.使用池时，一定要复用池，否则其使用代价会比每次创建单一对象更大，复用方式可以把XXXClient声明为static，只创建一次，并且在JVM关闭前通过addShutDownHook钩子关闭连接池
+
+
+
+5.在Spring中可以把XXXClient资源定义为Bean，通过@PostConstruct和@PreDestory来加载和释放资源
+
+
+
+6.合理配置连接池参数
+
+
+
+# 05.HTTP调用：你考虑到超时、重试、并发了吗？
+
 
 
 
