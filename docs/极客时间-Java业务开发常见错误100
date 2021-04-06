@@ -168,5 +168,12 @@ Ribbon对于Get请求，在出现问题时（如读取超时），Ribbon会自�
 
 1.注意Spring事务的生效规则
 
-- @Transactional注解除非在特殊配置（如使用AspectJ静态织入实现AOP），否则只有定义在public方法上的@Transactional才能生效，原因是Spring默认通过动态代理的方式实现AOP，而private方法无法被代理到，Spring自然也无法动态增强事务处理逻辑
+- @Transactional注解除非在特殊配置（如使用AspectJ静态织入实现AOP），否则**只有定义在public方法上的@Transactional才能生效**，原因是Spring默认通过动态代理的方式实现AOP，而private方法无法被代理到，Spring自然也无法动态增强事务处理逻辑
+- **必须通过代理过的类 从外部 调用目标方法才能生效** 如果在本Service中使用一个未打注解的方法调用一个打事务注解的方法，事务无法生效，因为通过this自调用，是没有机会走到Spring的代理类的，可以用注入自身的例子来尝试，注入自身实际上注入的是代理类
+
+
+
+2.注意事务生效后回滚的规则
+
 - 
+
