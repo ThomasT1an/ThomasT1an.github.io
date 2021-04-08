@@ -255,3 +255,65 @@ MySQL选择索引，并不是按照where条件中列的顺序进行的
 
 # 8. 判等问题：程序里如何确定你就是你？
 
+
+
+对于自定义类型，如果类型需要参与判等，那么需要同时实现equals和hashCode方法，并确保逻辑一致
+
+默认的hashCode方法是native方法
+
+```javascript
+Thread state combined with xorshift (https://en.wikipedia.org/wiki/Xorshift)
+```
+
+生成一个线程状态和随机数的结合
+
+如果要自定义hasiCode，可以直接使用Objects.hash方法来实现，也可以通过IDE的代码生成功能或者Lombok来生成
+
+如果类型也要参与比较，那么compareTo方法的逻辑同样需要和equals、hashCode方法一致
+
+
+
+Lombok的@EqualsAndHashCode注解实现equals和hashCode的时候，默认使用所有非static、非transient的字段，且不考虑父类，可以使用@EqualsAndHashCode.Exclude来排除一些字段，并设置callSuper = true来让子类的equals和hashCode调用父类的相应方法
+
+
+
+# 9. 数值计算：注意精度、舍入和溢出问题
+
+1.直接使用浮点数参与运算会丢失精度
+
+
+
+**2.使用BigDecimal表示和计算浮点数，务必使用字符串的构造方法来初始化BigDecimal**，如果只有Double类型的话，可以使用BigDecimal.valueOf方法
+
+
+
+3.**浮点数的字符串格式化也要通过BigDecimal进行**
+
+
+
+4.**对于BigDecimal，如果用equals来做判等，会比较小数位长度，比如1.0和1是不相等的**，可以用compareTo方法来比较value，
+
+这一点在使用HashSet/HashMap的时候也会出现问题，解决办法有两个
+
+- 使用TreeSet方法替换HashSet，TreeSet不使用hashCode和equals来比较元素，而是使用compareTo
+- 把BigDecimal存入HashSet或HashMap前，先试用stripTrailiingZeros去掉尾部的0，比较的时候也去掉
+
+
+
+5.注意数值溢出问题，超过int/long等最大值
+
+- 用Math类的addExact/subtractExact等方法进行数值运算，这些方法会在数值溢出时主动抛出RuntimeException
+- 使用大数类BigInteger
+
+
+
+# 10. 集合类：坑满地的List列表操作
+
+1.不能直接使用Arrays.asList来转换**基本类型数组** 可以把它转换为包装类的数组 或是使用Arrays.stream(int数组).boxed().collect(Collectors.toList())
+
+
+
+2.**使用Arrays.asList返回的List不支持增删操作，并且对元素的修改会影响原数组**，这是因为Arrays.asList返回的List并不是java.util.ArrayList，而是Arrays的内部类ArrayList，这个内部类不支持增删操作，并且直接使用了原始的数组，所以对这个ArrayList的修改会影响到原数组，修复的方式就是用一个new ArrayList(Arrays.asList(xxx))来重新初始化一个ArrayList
+
+
+
